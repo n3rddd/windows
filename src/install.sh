@@ -374,6 +374,10 @@ finishInstall() {
     writeState "sound" "$SOUND" || return 1
   fi
 
+  if [ -n "${CPU_MODEL:-}" ] && [[ "${CPU_MODEL,,}" != "host" ]]; then
+    writeState "cpu" "$CPU_MODEL" || return 1
+  fi
+  
   rm -rf "$TMP"
   return 0
 }
@@ -725,10 +729,23 @@ setMachine() {
       DISK_TYPE="auto"
       BOOT_MODE="windows_legacy"
       [ -z "${ADAPTER:-}" ] && ADAPTER="rtl8139" ;;
-    "winxp"* | "win2003"* )
+    "winxp"* )
       DISK_TYPE="blk"
       BOOT_MODE="windows_legacy"
-      [ -z "${SOUND:-}" ] && SOUND="usb-audio" ;;
+      [ -z "${SOUND:-}" ] && SOUND="usb-audio"
+
+      if [ -z "${CPU_MODEL,,}" ] || [[ "${CPU_MODEL,,}" == "host" ]]; then
+        # Workaround for boot loop on AMD EPYC processors
+        if [[ "${CPU,,}" == *"amd epyc"* ]]; then
+          CPU_MODEL="qemu32"
+        fi
+      fi
+      ;;
+    "win2003"* )
+      DISK_TYPE="blk"
+      BOOT_MODE="windows_legacy"
+      [ -z "${SOUND:-}" ] && SOUND="usb-audio"
+      ;;
     "winvista"* | "win7"* | "win2008"* )
       BOOT_MODE="windows_legacy" ;;
   esac
@@ -1172,6 +1189,7 @@ bootWindows() {
   restoreState "USB" "$STORAGE/windows.usb" || return 1
   restoreState "SOUND" "$STORAGE/windows.sound" || return 1
   restoreState "ADAPTER" "$STORAGE/windows.net" || return 1
+  restoreState "CPU_MODEL" "$STORAGE/windows.cpu" || return 1
   restoreState "DISK_TYPE" "$STORAGE/windows.type" || return 1
   restoreState "BOOT_MODE" "$STORAGE/windows.mode" "Y" || return 1
 
